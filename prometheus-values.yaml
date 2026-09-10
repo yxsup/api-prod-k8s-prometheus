@@ -7,18 +7,22 @@ grafana:
     tag: "13.1.0"
     pullPolicy: IfNotPresent
 
-  adminUser: admin
-  adminPassword: Prometheus123
+  # 管理员账号密码使用提前创建的 Secret
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
 
+  # 第一阶段只在集群内部开放。
+  # 后续再通过 192.168.30.187 Nginx + 域名访问。
   service:
     type: ClusterIP
 
+  # 当前 Dashboard 主要由 Helm provision。
+  # 暂不让 Grafana SQLite 使用 NFS。
   persistence:
     enabled: false
 
-  grafana.ini:
-    server:
-      root_url: http://grafana.k8s.local/
 
 prometheusOperator:
   image:
@@ -33,41 +37,68 @@ prometheusOperator:
       repository: prometheus-operator/prometheus-config-reloader
       tag: "v0.92.1"
 
+
 prometheus:
   enabled: true
 
+  # 第一阶段仅 ClusterIP。
   service:
     type: ClusterIP
 
   prometheusSpec:
+
+    # 保留时间
     retention: 2d
-    externalUrl: http://prometheus.k8s.local/
+
+    # Local PV 为 50Gi，最多让 TSDB 使用约 40GiB，
+    # 为 WAL、compaction 和文件系统保留余量。
+    retentionSize: 40GiB
+
     routePrefix: /
 
+    # Prometheus 固定运行在 node104
     nodeSelector:
-      kubernetes.io/hostname: docker-swarm-manager
+      monitoring-prometheus: "true"
 
-    tolerations:
-      - key: node-role.kubernetes.io/control-plane
-        operator: Exists
-        effect: NoSchedule
-      - key: node-role.kubernetes.io/master
-        operator: Exists
-        effect: NoSchedule
+    # Prometheus StatefulSet PVC 删除/缩容时保留
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Retain
+
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: "2"
+        memory: 4Gi
+
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 1000
+      runAsGroup: 2000
+      fsGroup: 2000
+      seccompProfile:
+        type: RuntimeDefault
 
     storageSpec:
       volumeClaimTemplate:
         spec:
           storageClassName: prometheus-local
+
           accessModes:
             - ReadWriteOnce
+
           resources:
             requests:
               storage: 50Gi
 
+    # 允许发现其他 namespace 中创建的
+    # ServiceMonitor / PodMonitor / PrometheusRule。
     serviceMonitorSelectorNilUsesHelmValues: false
     podMonitorSelectorNilUsesHelmValues: false
     ruleSelectorNilUsesHelmValues: false
+
 
 alertmanager:
   enabled: true
@@ -76,15 +107,26 @@ alertmanager:
     type: ClusterIP
 
   alertmanagerSpec:
-    externalUrl: http://alertmanager.k8s.local/
     routePrefix: /
+
+    # 暂时不做持久化。
+    # 后续配置 Telegram/Webhook 等告警时再处理。
     storage: {}
+
+
+# 新集群使用 Cilium kubeProxyReplacement，
+# 没有 kube-proxy，所以关闭 kube-proxy target/rules。
+kubeProxy:
+  enabled: false
+
 
 kube-state-metrics:
   enabled: true
 
+
 prometheus-node-exporter:
   enabled: true
+
 
 defaultRules:
   create: true
