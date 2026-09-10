@@ -2,28 +2,39 @@ apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   name: prometheus-local
+
 provisioner: kubernetes.io/no-provisioner
+
+# Local PV 建议等待 Pod 调度后再进行绑定
 volumeBindingMode: WaitForFirstConsumer
+
 ---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: pv-prometheus-master
+  name: pv-prometheus-node104
+
 spec:
   capacity:
     storage: 50Gi
+
   volumeMode: Filesystem
+
   accessModes:
     - ReadWriteOnce
+
   persistentVolumeReclaimPolicy: Retain
+
   storageClassName: prometheus-local
+
   local:
     path: /data/k8s/prometheus
+
   nodeAffinity:
     required:
       nodeSelectorTerms:
         - matchExpressions:
-            - key: kubernetes.io/hostname
+            - key: monitoring-prometheus
               operator: In
               values:
-                - docker-swarm-manager
+                - "true"
