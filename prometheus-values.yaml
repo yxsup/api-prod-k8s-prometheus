@@ -104,7 +104,10 @@ alertmanager:
   enabled: true
 
   service:
-    type: ClusterIP
+    type: NodePort
+    port: 80
+    targetPort: 3000
+    nodePort: 32081
 
   alertmanagerSpec:
     routePrefix: /
