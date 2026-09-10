@@ -16,13 +16,20 @@ grafana:
   # 第一阶段只在集群内部开放。
   # 后续再通过 192.168.30.187 Nginx + 域名访问。
   service:
-    type: ClusterIP
+    type: NodePort
+    port: 80
+    nodePort: 32081
 
   # 当前 Dashboard 主要由 Helm provision。
   # 暂不让 Grafana SQLite 使用 NFS。
   persistence:
     enabled: false
 
+  grafana.ini:
+    server:
+      domain: grafana.apigameprod.com
+      root_url: http://grafana.apigameprod.com/
+      serve_from_sub_path: false
 
 prometheusOperator:
   image:
@@ -104,10 +111,7 @@ alertmanager:
   enabled: true
 
   service:
-    type: NodePort
-    port: 80
-    targetPort: 3000
-    nodePort: 32081
+    type: ClusterIP
 
   alertmanagerSpec:
     routePrefix: /
