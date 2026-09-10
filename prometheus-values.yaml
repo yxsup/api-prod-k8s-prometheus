@@ -1,0 +1,90 @@
+grafana:
+  enabled: true
+
+  image:
+    registry: docker.io
+    repository: grafana/grafana
+    tag: "13.1.0"
+    pullPolicy: IfNotPresent
+
+  adminUser: admin
+  adminPassword: Prometheus123
+
+  service:
+    type: ClusterIP
+
+  persistence:
+    enabled: false
+
+  grafana.ini:
+    server:
+      root_url: http://grafana.k8s.local/
+
+prometheusOperator:
+  image:
+    registry: quay.io
+    repository: prometheus-operator/prometheus-operator
+    tag: "v0.92.1"
+    pullPolicy: IfNotPresent
+
+  prometheusConfigReloader:
+    image:
+      registry: quay.io
+      repository: prometheus-operator/prometheus-config-reloader
+      tag: "v0.92.1"
+
+prometheus:
+  enabled: true
+
+  service:
+    type: ClusterIP
+
+  prometheusSpec:
+    retention: 2d
+    externalUrl: http://prometheus.k8s.local/
+    routePrefix: /
+
+    nodeSelector:
+      kubernetes.io/hostname: docker-swarm-manager
+
+    tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+      - key: node-role.kubernetes.io/master
+        operator: Exists
+        effect: NoSchedule
+
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: prometheus-local
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 50Gi
+
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+
+alertmanager:
+  enabled: true
+
+  service:
+    type: ClusterIP
+
+  alertmanagerSpec:
+    externalUrl: http://alertmanager.k8s.local/
+    routePrefix: /
+    storage: {}
+
+kube-state-metrics:
+  enabled: true
+
+prometheus-node-exporter:
+  enabled: true
+
+defaultRules:
+  create: true
