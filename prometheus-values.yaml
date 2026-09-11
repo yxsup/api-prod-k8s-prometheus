@@ -55,7 +55,7 @@ prometheus:
   prometheusSpec:
 
     # 保留时间
-    retention: 2d
+    retention: 7d
 
     # Local PV 为 50Gi，最多让 TSDB 使用约 40GiB，
     # 为 WAL、compaction 和文件系统保留余量。
